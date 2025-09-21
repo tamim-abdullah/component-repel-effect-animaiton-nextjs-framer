@@ -6,6 +6,10 @@ html, body {
   background-color: #E4FFF9;
   margin: 0;
   padding: 0;
-  height: 100%;
-  width: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Optional: smooth font rendering */
+.text-gray-800 {
+  color: #1f2937;
 }

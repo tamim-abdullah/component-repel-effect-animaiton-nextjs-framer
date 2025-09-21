@@ -7,75 +7,122 @@ import { useMouse } from '../hooks/useMouse';
 
 interface RepelDivProps {
   id: number;
-  restX: number; // ✅ Center of mass (resting position)
+  restX: number;
   restY: number;
-  size: number;
+  initialHeight: number;
+  width: number;
+  fullText: string;
+  gap: number;
 }
 
-export default function RepelDiv({ id, restX, restY, size }: RepelDivProps) {
-  const { hoveredId, hoveredPosition, setHoveredId } = useContext(HoverContext);
+// Simple estimation — no DOM measurement
+const estimateExpandedHeight = (text: string, width: number) => {
+  const avgLineLength = (width - 32) / 8; // ~8px per char
+  const lines = Math.ceil(text.length / avgLineLength);
+  return Math.max(60, lines * 24 + 32); // min 60px
+};
+
+export default function RepelDiv({
+  id,
+  restX,
+  restY,
+  initialHeight,
+  width,
+  fullText,
+  gap,
+}: RepelDivProps) {
+  const { expandingId, setExpanding } = useContext(HoverContext);
   const { x: mouseX, y: mouseY } = useMouse();
 
-  // ✅ Always animate back to rest position
   const [isHovered, setIsHovered] = useState(false);
-  const [isNearby, setIsNearby] = useState(false);
+  const [scale, setScale] = useState(1);
 
-  // Calculate distance from mouse to MY center
-  const dx = mouseX - restX - size / 2;
-  const dy = mouseY - restY - size / 2;
-  const distance = Math.sqrt(dx * dx + dy * dy);
+  const expandedHeight = estimateExpandedHeight(fullText, width);
+  const isExpanding = isHovered && expandingId === id;
 
-  // If mouse is close to MY center → I am hovered
+  // My center for hover detection
+  const myCenterX = restX + width / 2;
+  const myCenterY = restY + initialHeight / 2;
+  const distance = Math.sqrt(
+    (mouseX - myCenterX) ** 2 + (mouseY - myCenterY) ** 2
+  );
+
+  // ✅ Hover detection — smooth, radius-based
   useEffect(() => {
-    if (distance < size) {
-      setIsHovered(true);
-      setHoveredId(id, { x: restX + size / 2, y: restY + size / 2 });
+    if (distance < 120) { // larger radius = smoother activation
+      if (!isHovered) {
+        setIsHovered(true);
+        setExpanding(id);
+      }
     } else {
-      setIsHovered(false);
-      if (hoveredId === id) setHoveredId(null, null);
+      if (isHovered) {
+        setIsHovered(false);
+        if (expandingId === id) setExpanding(null);
+      }
     }
-  }, [distance, id, hoveredId, restX, restY, size, setHoveredId]);
+  }, [distance, isHovered, id, expandingId, setExpanding]);
 
-  // Am I near the currently hovered div?
+  // ✅ Neighbor scale effect — if someone else is expanding
   useEffect(() => {
-    if (!hoveredPosition || isHovered || hoveredId === null) {
-      setIsNearby(false);
+    if (expandingId === null) {
+      setScale(1);
       return;
     }
 
-    const myCenterX = restX + size / 2;
-    const myCenterY = restY + size / 2;
+    if (expandingId === id) {
+      setScale(1); // I expand via height, not scale
+      return;
+    }
 
-    const dX = hoveredPosition.x - myCenterX;
-    const dY = hoveredPosition.y - myCenterY;
+    // Shrink if I'm close to expanding div
+    const dX = mouseX - myCenterX;
+    const dY = mouseY - myCenterY;
     const dist = Math.sqrt(dX * dX + dY * dY);
 
-    // If within 2.5x size radius → shrink
-    setIsNearby(dist < size * 2.5);
-  }, [hoveredPosition, isHovered, hoveredId, restX, restY, size]);
-
-  // ✅ Base scale: 1.2 if hovered, 0.85 if nearby, else 1
-  const targetScale = isHovered ? 1.2 : isNearby ? 0.85 : 1;
+    if (dist < 200) {
+      const shrink = 1 - (1 - dist / 200) * 0.15; // shrink max 15%
+      setScale(shrink);
+    } else {
+      setScale(1);
+    }
+  }, [mouseX, mouseY, myCenterX, myCenterY, expandingId, id]);
 
   return (
-    <motion.div
-      className="absolute rounded-2xl will-change-transform bg-[#B5FBDD]"
-      style={{
-        width: size,
-        height: size,
-        x: restX, // ✅ Always visually anchored to rest position
-        y: restY,
-      }}
-      animate={{ scale: targetScale }} // ✅ Only scale changes — position fixed
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      onHoverStart={() => {
-        setIsHovered(true);
-        setHoveredId(id, { x: restX + size / 2, y: restY + size / 2 });
-      }}
-      onHoverEnd={() => {
-        setIsHovered(false);
-        if (hoveredId === id) setHoveredId(null, null);
-      }}
-    />
+    <>
+      {/* Main div — scales for neighbors, height for self */}
+      <motion.div
+        className="absolute rounded-2xl bg-[#B5FBDD] overflow-hidden will-change-transform"
+        style={{
+          width: width,
+          height: isExpanding ? expandedHeight : initialHeight,
+          x: restX,
+          y: restY - (isExpanding ? (expandedHeight - initialHeight) / 2 : 0), // grow from center
+          scale: expandingId === id ? 1 : scale, // only neighbors scale
+        }}
+        transition={{
+          type: 'spring',
+          stiffness: 200, // 👈 slower, smoother
+          damping: 25,    // 👈 slower, smoother
+        }}
+        onHoverStart={() => setIsHovered(true)}
+        onHoverEnd={() => setIsHovered(false)}
+      />
+
+      {/* Text layer */}
+      <div
+        className="absolute flex items-start p-4 text-gray-800 font-medium leading-relaxed"
+        style={{
+          width: width - 32,
+          height: isExpanding ? expandedHeight - 32 : initialHeight - 32,
+          left: restX + 16,
+          top: restY - (isExpanding ? (expandedHeight - initialHeight) / 2 : 0) + 16,
+          whiteSpace: isExpanding ? 'normal' : 'nowrap',
+          overflow: 'hidden',
+          textOverflow: isExpanding ? 'clip' : 'ellipsis',
+        }}
+      >
+        {fullText}
+      </div>
+    </>
   );
 }

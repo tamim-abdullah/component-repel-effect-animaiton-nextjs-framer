@@ -3,13 +3,32 @@
 import { useState, useEffect } from 'react';
 import RepelDiv from './components/RepelDiv';
 
+const divTexts = [
+  "This is a short note.",
+  "Hover to see more... This div contains a longer message that will expand vertically when you get close to it. Amazing!",
+  "Quick tip!",
+  "Medium length text with details...",
+  "This one is brief.",
+  "Another long one: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+  "Tiny",
+  "This expands quite a bit — enough to show how neighbors shrink gracefully while padding stays perfect.",
+  "Short.",
+  "Medium content here, nothing too crazy.",
+  "Just a sentence.",
+  "Final div: This will expand to fit multiple lines of text, pushing neighbors to shrink — all while keeping the sacred padding untouched.",
+];
+
 export default function Home() {
   const [divs, setDivs] = useState<Array<{
     id: number;
     restX: number;
     restY: number;
-    size: number;
+    initialHeight: number;
+    width: number;
+    fullText: string;
   }>>([]);
+
+  const gap = 16;
 
   useEffect(() => {
     const calculateGridLayout = () => {
@@ -19,26 +38,26 @@ export default function Home() {
 
       const cols = 4;
       const rows = 3;
-      const gap = 16;
 
       const totalGapWidth = (cols - 1) * gap;
-      const totalGapHeight = (rows - 1) * gap;
-
-      const size = Math.floor(
-        Math.min(
-          (containerWidth - totalGapWidth) / cols,
-          (containerHeight - totalGapHeight) / rows
-        )
-      );
+      const width = Math.floor((containerWidth - totalGapWidth) / cols);
+      const initialHeight = 60;
 
       const divs = [];
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const id = row * cols + col;
-          const restX = margin + col * (size + gap);
-          const restY = margin + row * (size + gap);
+          const restX = margin + col * (width + gap);
+          const restY = margin + row * (initialHeight + gap);
 
-          divs.push({ id, restX, restY, size });
+          divs.push({
+            id,
+            restX,
+            restY,
+            initialHeight,
+            width,
+            fullText: divTexts[id] || "Default text...",
+          });
         }
       }
 
@@ -53,7 +72,7 @@ export default function Home() {
   return (
     <div className="relative w-screen h-screen bg-[#E4FFF9]">
       {divs.map((div) => (
-        <RepelDiv key={div.id} {...div} />
+        <RepelDiv key={div.id} {...div} gap={gap} />
       ))}
     </div>
   );

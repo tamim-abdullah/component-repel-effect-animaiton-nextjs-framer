@@ -3,28 +3,20 @@
 import { createContext, useContext, useState } from 'react';
 
 type HoverContextType = {
-  hoveredId: number | null;
-  hoveredPosition: { x: number; y: number } | null;
-  setHoveredId: (id: number | null, position: { x: number; y: number } | null) => void;
+  expandingId: number | null;
+  setExpanding: (id: number | null) => void;
 };
 
 export const HoverContext = createContext<HoverContextType>({
-  hoveredId: null,
-  hoveredPosition: null,
-  setHoveredId: () => {},
+  expandingId: null,
+  setExpanding: () => {},
 });
 
 export function HoverProvider({ children }: { children: React.ReactNode }) {
-  const [hoveredId, setHoveredIdState] = useState<number | null>(null);
-  const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
-
-  const setHoveredId = (id: number | null, position: { x: number; y: number } | null) => {
-    setHoveredIdState(id);
-    setHoveredPosition(position);
-  };
+  const [expandingId, setExpandingId] = useState<number | null>(null);
 
   return (
-    <HoverContext.Provider value={{ hoveredId, hoveredPosition, setHoveredId }}>
+    <HoverContext.Provider value={{ expandingId, setExpanding: setExpandingId }}>
       {children}
     </HoverContext.Provider>
   );
